@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EGS Wine Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0D0208; --surface:#1A0614; --surface2:#250C1E;
+  --card:#FDF8F4; --border:#E8D5C0;
+  --wine:#7B1D42; --wine-light:#A82B5A;
+  --gold:#C9A84C; --gold-light:#E8D09A; --gold-pale:#F5EDD8;
+  --text-dark:#1A0A0F; --text-med:#5A2A3A; --text-light:#8A6070;
+  --shadow:0 4px 24px rgba(0,0,0,0.10);
+  --shadow-hover:0 10px 40px rgba(0,0,0,0.18);
+  --radius:16px; --tr:0.28s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text-dark);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* ── HEADER ── */
+header{background:linear-gradient(135deg,#0D0208 0%,#1E0A18 50%,#280D20 100%);border-bottom:2px solid var(--gold);position:sticky;top:0;z-index:100;padding:0 2rem}
+.hdr{max-width:1440px;margin:0 auto;padding:1rem 0 0.8rem}
+.hdr-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem}
+.brand{display:flex;align-items:center;gap:0.7rem}
+.brand-icon{font-size:2rem;filter:drop-shadow(0 0 8px rgba(201,168,76,.6))}
+.brand h1{font-family:'Playfair Display',serif;font-size:1.85rem;font-weight:700;color:var(--gold);letter-spacing:.02em;line-height:1}
+.brand h1 em{color:#fff;font-style:normal}
+.hdr-flag{height:40px;border-radius:6px;border:2px solid var(--gold);box-shadow:0 2px 8px rgba(0,0,0,.5);display:none;object-fit:cover}
+.hdr-flag.on{display:block}
+
+/* breadcrumb */
+.breadcrumb{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;min-height:26px;margin-bottom:.5rem}
+.bc-item{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:rgba(255,255,255,.55);cursor:pointer;transition:color var(--tr)}
+.bc-item:hover{color:var(--gold)}
+.bc-item.active{color:var(--gold-light);font-weight:600;cursor:default}
+.bc-sep{color:rgba(255,255,255,.25);font-size:.9rem}
+
+/* search + filter */
+.search-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;max-width:380px}
+.search-wrap span{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.38);font-size:.85rem;pointer-events:none}
+#searchInput{width:100%;padding:.45rem .9rem .45rem 2.3rem;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:50px;color:#fff;font-size:.85rem;font-family:'Inter',sans-serif;outline:none;transition:var(--tr)}
+#searchInput::placeholder{color:rgba(255,255,255,.32)}
+#searchInput:focus{background:rgba(255,255,255,.13);border-color:var(--gold)}
+.filters{display:none;gap:.35rem;flex-wrap:wrap}
+.filters.on{display:flex}
+.fbtn{padding:.28rem .75rem;border:1px solid rgba(255,255,255,.2);background:transparent;border-radius:50px;color:rgba(255,255,255,.55);font-size:.72rem;cursor:pointer;transition:var(--tr);font-family:'Inter',sans-serif}
+.fbtn:hover,.fbtn.sel{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.1)}
+.fbtn[data-t=red].sel{border-color:#e85;color:#e85;background:rgba(238,136,85,.1)}
+.fbtn[data-t=white].sel{border-color:#e8c055;color:#e8c055;background:rgba(232,192,85,.1)}
+.fbtn[data-t=rose].sel{border-color:#e870b0;color:#e870b0;background:rgba(232,112,176,.1)}
+.fbtn[data-t=sparkling].sel{border-color:#55c0e8;color:#55c0e8;background:rgba(85,192,232,.1)}
+.fbtn[data-t=fortified].sel{border-color:#aa78e8;color:#aa78e8;background:rgba(170,120,232,.1)}
+.fbtn[data-t=dessert].sel{border-color:#e8b055;color:#e8b055;background:rgba(232,176,85,.1)}
+.fbtn[data-t=alko].sel{border-color:#00a651;color:#00a651;background:rgba(0,166,81,.1)}
+.fbtn[data-t=sb].sel{border-color:#006AA7;color:#006AA7;background:rgba(0,106,167,.1)}
+.fbtn[data-t=vm].sel{border-color:#EF2B2D;color:#EF2B2D;background:rgba(239,43,45,.1)}
+.alko-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .6rem;background:#E8F5EC;color:#00622E;border:1px solid rgba(0,98,46,.2);border-radius:50px;font-size:.68rem;font-weight:600;margin-top:.5rem;white-space:nowrap}
+.sb-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .6rem;background:#E8F2FA;color:#003D6B;border:1px solid rgba(0,61,107,.2);border-radius:50px;font-size:.68rem;font-weight:600;margin-top:.5rem;white-space:nowrap}
+.vm-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .6rem;background:#FDEAEA;color:#8B0000;border:1px solid rgba(139,0,0,.2);border-radius:50px;font-size:.68rem;font-weight:600;margin-top:.5rem;white-space:nowrap}
+
+/* ── MAIN ── */
+main{max-width:1440px;margin:0 auto;padding:2rem 2rem 5rem}
+.view-hdr{margin-bottom:1.8rem}
+.view-title{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:600;color:var(--gold-light);margin-bottom:.25rem}
+.view-sub{color:rgba(255,255,255,.45);font-size:.82rem}
+
+/* back button */
+.back-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.38rem 1rem .38rem .7rem;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:50px;color:var(--gold-light);cursor:pointer;font-size:.82rem;margin-bottom:1.4rem;transition:var(--tr);font-family:'Inter',sans-serif}
+.back-btn:hover{background:rgba(201,168,76,.1);border-color:var(--gold)}
+
+/* ── GRIDS ── */
+.grid{display:grid;gap:1.4rem;animation:fadeUp .3s ease}
+.grid.g-countries{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.grid.g-regions{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.grid.g-wineries{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+.grid.g-wines{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── COUNTRY CARD ── */
+.cc{background:var(--card);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform var(--tr),box-shadow var(--tr);box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.06)}
+.cc:hover{transform:translateY(-5px);box-shadow:var(--shadow-hover)}
+.cc-banner{height:110px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1A0614,#350C28)}
+.cc-banner img{width:100%;height:100%;object-fit:cover;opacity:.88}
+.cc-banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.45))}
+.cc-body{padding:1.2rem 1.4rem 1.4rem}
+.cc-name{font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:700;color:var(--text-dark);margin-bottom:.4rem}
+.cc-stats{display:flex;gap:1rem;margin-bottom:.6rem}
+.cc-stat{font-size:.72rem;color:var(--text-light)}
+.cc-stat strong{color:var(--wine);font-size:.85rem}
+.cc-desc{font-size:.78rem;color:var(--text-med);line-height:1.55;margin-bottom:.7rem}
+.tags{display:flex;flex-wrap:wrap;gap:.3rem}
+.tag{padding:.14rem .5rem;background:var(--gold-pale);color:var(--text-med);border-radius:50px;font-size:.68rem;border:1px solid var(--gold-light)}
+
+/* ── REGION CARD ── */
+.rc{background:var(--card);border-radius:var(--radius);padding:1.4rem;cursor:pointer;transition:transform var(--tr),box-shadow var(--tr);box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.06)}
+.rc:hover{transform:translateY(-5px);box-shadow:var(--shadow-hover)}
+.rc-icon{font-size:1.8rem;margin-bottom:.5rem}
+.rc-name{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:var(--text-dark);margin-bottom:.4rem}
+.rc-meta{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem}
+.rc-meta span{font-size:.72rem;color:var(--text-light);display:flex;align-items:center;gap:.25rem}
+.rc-desc{font-size:.78rem;color:var(--text-med);line-height:1.55}
+
+/* ── WINERY CARD ── */
+.wc{background:var(--card);border-radius:var(--radius);padding:1.4rem;cursor:pointer;transition:transform var(--tr),box-shadow var(--tr);box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.06)}
+.wc:hover{transform:translateY(-5px);box-shadow:var(--shadow-hover)}
+.wc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem}
+.wc-icon{font-size:1.8rem}
+.stars{display:flex;gap:.05rem}
+.star{font-size:.8rem;color:var(--gold)}
+.star.e{color:var(--border)}
+.wc-name{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:var(--text-dark);margin-bottom:.2rem}
+.wc-founded{font-size:.72rem;color:var(--text-light);margin-bottom:.3rem}
+.wc-style{font-size:.72rem;color:var(--wine);font-style:italic;margin-bottom:.4rem}
+.wc-desc{font-size:.78rem;color:var(--text-med);line-height:1.55}
+.wc-count{margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--text-light)}
+
+/* ── WINE CARD ── */
+.wine{background:var(--card);border-radius:var(--radius);padding:1.4rem;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.06);transition:transform var(--tr),box-shadow var(--tr)}
+.wine:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+.wine-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.6rem}
+.badge{display:inline-flex;align-items:center;gap:.25rem;padding:.22rem .65rem;border-radius:50px;font-size:.68rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.badge.red{background:#FFE8E8;color:#7B0000;border:1px solid rgba(139,26,26,.2)}
+.badge.white{background:#FFFDE8;color:#6B5500;border:1px solid rgba(139,114,0,.2)}
+.badge.rose{background:#FFE8F5;color:#8B0050;border:1px solid rgba(176,48,112,.2)}
+.badge.sparkling{background:#E8F8FF;color:#0A4B6B;border:1px solid rgba(26,107,139,.2)}
+.badge.fortified{background:#F0E8FF;color:#3A0A6B;border:1px solid rgba(90,26,139,.2)}
+.badge.dessert{background:#FFF5E0;color:#6B3A00;border:1px solid rgba(139,90,0,.2)}
+.vintage{padding:.2rem .6rem;background:#1E0A18;color:var(--gold-light);border-radius:50px;font-size:.72rem;font-weight:500;white-space:nowrap}
+.wine-name{font-family:'Playfair Display',serif;font-size:1rem;font-weight:600;color:var(--text-dark);margin-bottom:.25rem;line-height:1.35}
+.wine-grape{font-size:.73rem;color:var(--wine);font-style:italic;margin-bottom:.45rem}
+.wine-desc{font-size:.78rem;color:var(--text-med);line-height:1.55;margin-bottom:.7rem}
+.wine-footer{display:flex;align-items:center;justify-content:space-between;padding-top:.65rem;border-top:1px solid var(--border)}
+.wine-price{font-size:.85rem;font-weight:600;color:var(--text-dark)}
+.wine-score{font-size:.72rem;color:var(--text-light);display:flex;align-items:center;gap:.3rem}
+.wine-score strong{font-weight:700;color:var(--wine);font-size:.88rem}
+
+/* empty / responsive */
+.empty{text-align:center;padding:4rem 2rem;color:rgba(255,255,255,.38)}
+.empty .ei{font-size:3rem;margin-bottom:1rem}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  header{padding:0 .85rem}
+  main{padding:1.2rem .85rem 5rem}
+  .brand h1{font-size:1.25rem}
+  .brand-icon{font-size:1.6rem}
+  .hdr-flag{height:32px}
+  .hdr{padding:.7rem 0 .6rem}
+  .hdr-row1{margin-bottom:.45rem}
+  .breadcrumb{margin-bottom:.4rem;min-height:22px;gap:.3rem}
+  .bc-item{font-size:.78rem}
+  .search-row{gap:.4rem;flex-wrap:nowrap}
+  .search-wrap{max-width:none;flex:1;min-width:0}
+  #searchInput{font-size:.85rem;padding:.5rem .9rem .5rem 2.2rem;min-height:40px}
+  /* filter bar scrolls horizontally on mobile */
+  .filters.on{display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:3px;scrollbar-width:none;margin-top:.3rem}
+  .filters.on::-webkit-scrollbar{display:none}
+  .fbtn{flex-shrink:0;padding:.38rem .8rem;font-size:.72rem;min-height:36px;touch-action:manipulation}
+  .grid.g-countries{grid-template-columns:repeat(auto-fill,minmax(155px,1fr))}
+  .grid.g-regions,.grid.g-wineries,.grid.g-wines{grid-template-columns:1fr}
+  .grid{gap:.85rem}
+  .cc-banner{height:80px}
+  .cc-body{padding:.9rem 1rem 1rem}
+  .cc-name{font-size:1.15rem}
+  .rc,.wc{padding:1.1rem}
+  .rc-name,.wc-name{font-size:1.1rem}
+  .back-btn{font-size:.8rem;padding:.44rem 1rem .44rem .75rem;min-height:38px;touch-action:manipulation}
+  .view-title{font-size:1.25rem}
+  .wine{padding:1.1rem}
+  .wine-name{font-size:.95rem}
+  .badge{font-size:.65rem}
+  /* prevent hover lift on touch */
+  .cc:hover,.rc:hover,.wc:hover,.wine:hover{transform:none;box-shadow:var(--shadow)}
+  /* tap highlight */
+  .cc,.rc,.wc,.wine,.back-btn,.fbtn,.bc-item{-webkit-tap-highlight-color:rgba(201,168,76,.18)}
+}
+@media(max-width:480px){
+  header{padding:0 .65rem}
+  main{padding:1rem .65rem 5rem}
+  .grid.g-countries{grid-template-columns:repeat(2,1fr)}
+  .brand h1{font-size:1.05rem}
+  .brand-icon{font-size:1.5rem}
+  .hdr-flag{display:none!important}
+  .search-wrap{flex:1}
+  .wine-footer{flex-direction:column;align-items:flex-start;gap:.3rem}
+  .cc-desc{display:none}
+  .tags{display:none}
+  .rc-desc,.wc-desc{font-size:.75rem}
+  .rc-meta{gap:.4rem}
+  .view-hdr{margin-bottom:1.2rem}
+  .view-title{font-size:1.1rem}
+}
+/* iOS safe area */
+@supports(padding:max(0px)){
+  header{padding-left:max(.85rem,env(safe-area-inset-left));padding-right:max(.85rem,env(safe-area-inset-right))}
+  main{padding-bottom:max(5rem,calc(4rem + env(safe-area-inset-bottom)))}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <div class="hdr-row1">
+      <div class="brand">
+        <span class="brand-icon">🍷</span>
+        <h1><em>EGS</em> Wine Explorer</h1>
+      </div>
+      <img id="hdrFlag" class="hdr-flag" src="" alt="" />
+    </div>
+    <nav class="breadcrumb" id="breadcrumb"></nav>
+    <div class="search-row">
+      <div class="search-wrap">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="Search countries, regions, wineries, wines, grapes…" oninput="onSearch(this.value)">
+      </div>
+      <div class="filters" id="filters">
+        <button class="fbtn sel" data-t="all" onclick="setFilter('all')">All</button>
+        <button class="fbtn" data-t="red" onclick="setFilter('red')">🍷 Red</button>
+        <button class="fbtn" data-t="white" onclick="setFilter('white')">🥂 White</button>
+        <button class="fbtn" data-t="rose" onclick="setFilter('rose')">🌸 Rosé</button>
+        <button class="fbtn" data-t="sparkling" onclick="setFilter('sparkling')">✨ Sparkling</button>
+        <button class="fbtn" data-t="fortified" onclick="setFilter('fortified')">🍾 Fortified</button>
+        <button class="fbtn" data-t="dessert" onclick="setFilter('dessert')">🍯 Dessert</button>
+        <button class="fbtn" data-t="alko" onclick="setFilter('alko')">🇫🇮 Alko</button>
+        <button class="fbtn" data-t="sb" onclick="setFilter('sb')">🇸🇪 SB</button>
+        <button class="fbtn" data-t="vm" onclick="setFilter('vm')">🇳🇴 VM</button>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+  <div id="view">
+    <div id="loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1.2rem;color:rgba(255,255,255,.5)">
+      <div style="font-size:2.5rem;animation:spin 1.2s linear infinite">🍷</div>
+      <div style="font-size:.9rem;font-family:'Inter',sans-serif">Loading wine data…</div>
+    </div>
+  </div>
+</main>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let state={view:'countries',country:null,region:null,winery:null,search:'',filter:'all'};
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+function flagUrl(code){return`https://flagcdn.com/w160/${code}.png`}
+function stars(n,max=5){let s='';for(let i=1;i<=max;i++)s+=`<span class="star${i>n?' e':''}">${i<=n?'★':'☆'}</span>`;return s}
+function typeIcon(t){return{red:'🍷',white:'🥂',rose:'🌸',sparkling:'✨',fortified:'🍾',dessert:'🍯'}[t]||'🍷'}
+function wineryMatchesFilter(w,f){if(f==='all')return true;if(f==='alko')return w.wines.some(x=>x.alkoAvailable);if(f==='sb')return w.wines.some(x=>x.sbAvailable);if(f==='vm')return w.wines.some(x=>x.vmAvailable);return w.wines.some(x=>x.type===f)}
+function regionMatchesFilter(r,f){return f==='all'||r.wineries.some(w=>wineryMatchesFilter(w,f))}
+function countryMatchesFilter(c,f){return f==='all'||c.regions.some(r=>regionMatchesFilter(r,f))}
+
+// ─────────────────────────────────────────────
+// BREADCRUMB + HEADER FLAG
+// ─────────────────────────────────────────────
+function updateHeader(){
+  const bc=$('breadcrumb');
+  const flag=$('hdrFlag');
+  let html='';
+  const country=state.country;
+  const region=state.region;
+  const winery=state.winery;
+
+  if(state.search){
+    html+=`<span class="bc-item" onclick="goCountries()">All Countries</span>`;
+    html+=`<span class="bc-sep">›</span>`;
+    html+=`<span class="bc-item active">Search Results</span>`;
+    flag.classList.remove('on');
+  } else if(state.view==='countries'){
+    html+=`<span class="bc-item active">All Countries</span>`;
+    flag.classList.remove('on');
+  } else {
+    html+=`<span class="bc-item" onclick="goCountries()">All Countries</span>`;
+    html+=`<span class="bc-sep">›</span>`;
+    if(state.view==='regions'){
+      html+=`<span class="bc-item active">${country.flag} ${country.name}</span>`;
+    } else {
+      html+=`<span class="bc-item" onclick="goRegions()">${country.flag} ${country.name}</span>`;
+      html+=`<span class="bc-sep">›</span>`;
+    }
+    if(state.view==='wineries'){
+      html+=`<span class="bc-item active">${region.name}</span>`;
+    } else if(state.view==='wines'){
+      html+=`<span class="bc-item" onclick="goWineries()">${region.name}</span>`;
+      html+=`<span class="bc-sep">›</span>`;
+      html+=`<span class="bc-item active">${winery.name}</span>`;
+    }
+    flag.src=flagUrl(country.code);
+    flag.alt=country.name;
+    flag.classList.add('on');
+  }
+  bc.innerHTML=html;
+  // Sync the selected filter button and always show filters
+  $('filters').classList.add('on');
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('sel',b.dataset.t===state.filter));
+}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function goCountries(){state={view:'countries',country:null,region:null,winery:null,search:'',filter:state.filter};render()}
+function goRegions(){state.view='regions';state.region=null;state.winery=null;state.search='';render()}
+function goWineries(){state.view='wineries';state.winery=null;state.search='';render()}
+function selectCountry(c){state.country=c;state.view='regions';state.search='';render()}
+function selectRegion(r){state.region=r;state.view='wineries';state.search='';render()}
+function selectWinery(w){state.winery=w;state.view='wines';state.search='';render()}
+
+function onSearch(v){state.search=v.toLowerCase();render()}
+function setFilter(t){state.filter=t;render()}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+function render(){
+  const loader=$('loader');if(loader)loader.remove();
+  updateHeader();
+  $('searchInput').value=state.search;
+  const v=$('view');
+  if(state.search) v.innerHTML=renderSearch();
+  else if(state.view==='countries') v.innerHTML=renderCountries();
+  else if(state.view==='regions') v.innerHTML=renderRegions();
+  else if(state.view==='wineries') v.innerHTML=renderWineries();
+  else v.innerHTML=renderWines();
+}
+
+function backBtn(fn,label){return`<button class="back-btn" onclick="${fn}">← ${label}</button>`}
+
+function renderCountries(){
+  const q=state.search; const f=state.filter;
+  const items=DATA.filter(c=>(!q||c.name.toLowerCase().includes(q))&&countryMatchesFilter(c,f));
+  if(!items.length)return`<div class="empty"><div class="ei">🔍</div><p>No countries match your filters.</p></div>`;
+  const cards=items.map(c=>{
+    const rCount=f==='all'?c.regions.length:c.regions.filter(r=>regionMatchesFilter(r,f)).length;
+    const wCount=f==='all'?c.regions.reduce((a,r)=>a+r.wineries.length,0):c.regions.reduce((a,r)=>a+r.wineries.filter(w=>wineryMatchesFilter(w,f)).length,0);
+    return`<div class="cc" onclick="selectCountry(DATA.find(x=>x.id==='${c.id}'))">
+      <div class="cc-banner"><img src="${flagUrl(c.code)}" alt="${c.name}" onerror="this.style.display='none'"><div class="cc-banner-overlay"></div></div>
+      <div class="cc-body">
+        <div class="cc-name">${c.flag} ${c.name}</div>
+        <div class="cc-stats">
+          <div class="cc-stat"><strong>${rCount}</strong> Regions</div>
+          <div class="cc-stat"><strong>${wCount}</strong> Wineries</div>
+        </div>
+        <div class="cc-desc">${c.description}</div>
+        <div class="tags">${c.keyGrapes.map(g=>`<span class="tag">${g}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return`<div class="view-hdr"><div class="view-title">Wine Producing Countries</div><div class="view-sub">Select a country to explore its wine regions</div></div>
+  <div class="grid g-countries">${cards}</div>`;
+}
+
+function renderRegions(){
+  const c=state.country; const q=state.search; const f=state.filter;
+  const items=c.regions.filter(r=>(!q||r.name.toLowerCase().includes(q))&&regionMatchesFilter(r,f));
+  if(!items.length)return backBtn('goCountries()','All Countries')+`<div class="empty"><div class="ei">🔍</div><p>No regions match your filters.</p></div>`;
+  const cards=items.map(r=>{
+    const wCount=f==='all'?r.wineries.length:r.wineries.filter(w=>wineryMatchesFilter(w,f)).length;
+    return`<div class="rc" onclick="selectRegion(DATA.find(x=>x.id==='${c.id}').regions.find(r=>r.id==='${r.id}'))">
+    <div class="rc-icon">${r.icon}</div>
+    <div class="rc-name">${r.name}</div>
+    <div class="rc-meta">
+      <span>🌤 ${r.climate}</span>
+      <span>🍇 ${r.keyGrapes.slice(0,2).join(', ')}</span>
+      <span>🏛 ${wCount} Wineries</span>
+    </div>
+    <div class="rc-desc">${r.description}</div>
+    <div class="tags" style="margin-top:.6rem">${r.keyGrapes.map(g=>`<span class="tag">${g}</span>`).join('')}</div>
+  </div>`;}).join('');
+  return backBtn('goCountries()','All Countries')+
+    `<div class="view-hdr"><div class="view-title">${c.flag} ${c.name} — Wine Regions</div><div class="view-sub">Select a region to discover its wineries</div></div>
+    <div class="grid g-regions">${cards}</div>`;
+}
+
+function renderWineries(){
+  const c=state.country; const r=state.region; const q=state.search; const f=state.filter;
+  const items=r.wineries.filter(w=>(!q||w.name.toLowerCase().includes(q))&&wineryMatchesFilter(w,f));
+  if(!items.length)return backBtn('goRegions()','Regions')+`<div class="empty"><div class="ei">🔍</div><p>No wineries match your filters.</p></div>`;
+  const cards=items.map(w=>{
+    const wineCount=f==='all'?w.wines.length:w.wines.filter(x=>f==='alko'?x.alkoAvailable:f==='sb'?x.sbAvailable:f==='vm'?x.vmAvailable:x.type===f).length;
+    return`<div class="wc" onclick="selectWinery(DATA.find(x=>x.id==='${c.id}').regions.find(r=>r.id==='${r.id}').wineries.find(w=>w.id==='${w.id}'))">
+    <div class="wc-top"><span class="wc-icon">🏰</span><div class="stars">${stars(w.rating)}</div></div>
+    <div class="wc-name">${w.name}</div>
+    <div class="wc-founded">Est. ${w.founded}</div>
+    <div class="wc-style">${w.style}</div>
+    <div class="wc-desc">${w.description}</div>
+    <div class="wc-count">🍾 ${wineCount}${f==='all'?'':' matching'} wines available</div>
+  </div>`;}).join('');
+  return backBtn('goRegions()','Regions')+
+    `<div class="view-hdr"><div class="view-title">${r.name} — Wineries</div><div class="view-sub">${c.flag} ${c.name} · Select a winery to explore its wines</div></div>
+    <div class="grid g-wineries">${cards}</div>`;
+}
+
+function renderWines(){
+  const c=state.country; const r=state.region; const w=state.winery;
+  const q=state.search; const f=state.filter;
+  let items=w.wines.filter(wine=>{
+    if(f==='alko'){if(!wine.alkoAvailable) return false;}
+    else if(f==='sb'){if(!wine.sbAvailable) return false;}
+    else if(f==='vm'){if(!wine.vmAvailable) return false;}
+    else if(f!=='all'&&wine.type!==f) return false;
+    if(q&&!wine.name.toLowerCase().includes(q)&&!wine.grape.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if(!items.length)return backBtn('goWineries()','Wineries')+`<div class="empty"><div class="ei">🔍</div><p>No wines match your filters.</p></div>`;
+  const cards=items.map(wine=>`<div class="wine">
+    <div class="wine-top">
+      <span class="badge ${wine.type}">${typeIcon(wine.type)} ${wine.type==='rose'?'Rosé':wine.type.charAt(0).toUpperCase()+wine.type.slice(1)}</span>
+      <span class="vintage">${wine.vintage}</span>
+    </div>
+    <div class="wine-name">${wine.name}</div>
+    <div class="wine-grape">${wine.grape}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem">
+      ${wine.alkoAvailable?`<span class="alko-badge">🇫🇮 Alko${wine.alkoPrice?' · '+wine.alkoPrice:''}</span>`:''}
+      ${wine.sbAvailable?`<span class="sb-badge">🇸🇪 SB${wine.sbPrice?' · '+wine.sbPrice:''}</span>`:''}
+      ${wine.vmAvailable?`<span class="vm-badge">🇳🇴 VM${wine.vmPrice?' · '+wine.vmPrice:''}</span>`:''}
+    </div>
+    <div class="wine-desc">${wine.description}</div>
+    <div class="wine-footer">
+      <span class="wine-price">${wine.price}</span>
+      <span class="wine-score"><strong>${wine.score}</strong>/100 pts</span>
+    </div>
+  </div>`).join('');
+  return backBtn('goWineries()','Wineries')+
+    `<div class="view-hdr"><div class="view-title">${w.name}</div><div class="view-sub">${c.flag} ${c.name} · ${r.name} · Est. ${w.founded}</div></div>
+    <div class="grid g-wines">${cards}</div>`;
+}
+
+// ─────────────────────────────────────────────
+// SEARCH NAVIGATION HELPERS
+// ─────────────────────────────────────────────
+function goToWinery(cid,rid,wid){
+  const c=DATA.find(x=>x.id===cid);
+  const r=c.regions.find(x=>x.id===rid);
+  const w=r.wineries.find(x=>x.id===wid);
+  state={view:'wines',country:c,region:r,winery:w,search:'',filter:state.filter};
+  $('searchInput').value='';
+  render();
+}
+function goToRegion(cid,rid){
+  const c=DATA.find(x=>x.id===cid);
+  const r=c.regions.find(x=>x.id===rid);
+  state={view:'wineries',country:c,region:r,winery:null,search:'',filter:state.filter};
+  $('searchInput').value='';
+  render();
+}
+
+// ─────────────────────────────────────────────
+// GLOBAL SEARCH
+// ─────────────────────────────────────────────
+function renderSearch(){
+  const q=state.search;
+  const f=state.filter;
+  const results=[];
+
+  DATA.forEach(country=>{
+    const mc=country.name.toLowerCase().includes(q);
+    country.regions.forEach(region=>{
+      const mr=region.name.toLowerCase().includes(q);
+      region.wineries.forEach(winery=>{
+        const mw=winery.name.toLowerCase().includes(q);
+        winery.wines.forEach(wine=>{
+          if(!mc&&!mr&&!mw&&!wine.name.toLowerCase().includes(q)&&!wine.grape.toLowerCase().includes(q)) return;
+          if(f==='alko'&&!wine.alkoAvailable) return;
+          if(f==='sb'&&!wine.sbAvailable) return;
+          if(f==='vm'&&!wine.vmAvailable) return;
+          if(f!=='all'&&f!=='alko'&&f!=='sb'&&f!=='vm'&&wine.type!==f) return;
+          results.push({country,region,winery,wine});
+        });
+      });
+    });
+  });
+
+  if(!results.length) return`<div class="empty"><div class="ei">🔍</div><p>No results for "<strong style="color:var(--gold)">${q}</strong>".</p></div>`;
+
+  const cap=300;
+  const shown=results.slice(0,cap);
+  const subtitle=results.length>cap
+    ?`Showing first ${cap} of ${results.length.toLocaleString()} results for "<strong style="color:var(--gold-light)">${q}</strong>"`
+    :`${results.length.toLocaleString()} result${results.length===1?'':'s'} for "<strong style="color:var(--gold-light)">${q}</strong>"`;
+
+  const cards=shown.map(({country,region,winery,wine})=>`<div class="wine" onclick="goToWinery('${country.id}','${region.id}','${winery.id}')" style="cursor:pointer">
+    <div style="font-size:.7rem;color:var(--text-light);margin-bottom:.55rem;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap">
+      <span onclick="event.stopPropagation();selectCountry(DATA.find(c=>c.id==='${country.id}'))" style="cursor:pointer;color:var(--wine);font-weight:500">${country.flag} ${country.name}</span>
+      <span style="color:var(--border)">›</span>
+      <span onclick="event.stopPropagation();goToRegion('${country.id}','${region.id}')" style="cursor:pointer;color:var(--wine)">${region.name}</span>
+      <span style="color:var(--border)">›</span>
+      <span>${winery.name}</span>
+    </div>
+    <div class="wine-top">
+      <span class="badge ${wine.type}">${typeIcon(wine.type)} ${wine.type==='rose'?'Rosé':wine.type.charAt(0).toUpperCase()+wine.type.slice(1)}</span>
+      ${wine.vintage?`<span class="vintage">${wine.vintage}</span>`:''}
+    </div>
+    <div class="wine-name">${wine.name}</div>
+    <div class="wine-grape">${wine.grape}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem">
+      ${wine.alkoAvailable?`<span class="alko-badge">🇫🇮 Alko${wine.alkoPrice?' · '+wine.alkoPrice:''}</span>`:''}
+      ${wine.sbAvailable?`<span class="sb-badge">🇸🇪 SB${wine.sbPrice?' · '+wine.sbPrice:''}</span>`:''}
+      ${wine.vmAvailable?`<span class="vm-badge">🇳🇴 VM${wine.vmPrice?' · '+wine.vmPrice:''}</span>`:''}
+    </div>
+    <div class="wine-desc">${wine.description}</div>
+    <div class="wine-footer">
+      <span class="wine-price">${wine.price}</span>
+      <span class="wine-score"><strong>${wine.score}</strong>/100 pts</span>
+    </div>
+  </div>`).join('');
+
+  return`<div class="view-hdr"><div class="view-title">🔍 Search Results</div><div class="view-sub">${subtitle}</div></div>
+  <div class="grid g-wines">${cards}</div>`;
+}
+
+// ─────────────────────────────────────────────
+// REGION DESCRIPTIONS LOOKUP
+// ─────────────────────────────────────────────
+const REGION_DESC = {
+  // France
+  'bordeaux':       'The world\'s largest fine-wine region, famous for structured blends of Cabernet Sauvignon and Merlot from prestigious appellations like Pauillac, St-Émilion and Pomerol.',
+  'burgundy':       'The spiritual home of Pinot Noir and Chardonnay, where tiny parcels of land produce wildly different wines and Grand Cru prices reach stratospheric heights.',
+  'champagne':      'The world\'s most celebrated sparkling wine region. Cool chalk soils and the méthode champenoise transform Chardonnay, Pinot Noir and Meunier into icons of celebration.',
+  'rhone':          'Stretching from Lyon to Avignon, the Rhône unites majestic Syrah in the north (Hermitage, Côte-Rôtie) with Grenache-led blends in the south (Châteauneuf-du-Pape).',
+  'rhone-valley':   'Stretching from Lyon to Avignon, the Rhône unites majestic Syrah in the north (Hermitage, Côte-Rôtie) with Grenache-led blends in the south (Châteauneuf-du-Pape).',
+  'alsace':         'France\'s most Germanic wine region, producing bone-dry Riesling, rich Gewurztraminer and Pinot Gris of great aromatic intensity along the eastern foothills of the Vosges.',
+  'loire':          'France\'s longest river valley yields an astonishing diversity — from crisp Muscadet near the Atlantic to Sancerre and Pouilly-Fumé\'s flinty Sauvignon Blanc and Chenin Blanc in Vouvray.',
+  'languedoc':      'The sun-drenched Mediterranean arc from Nîmes to Perpignan is France\'s largest appellation zone, offering bold, value-driven reds from Carignan, Grenache and Syrah alongside rising-star appellations like Pic St-Loup.',
+  'languedoc-roussillon': 'France\'s vast Mediterranean region, producing bold Syrah, Grenache and Carignan blends, alongside distinctive Banyuls and Maury fortified wines near the Spanish border.',
+  'provence':       'The birthplace of rosé wine. Provence\'s pale, bone-dry Grenache-based rosés set the global style, while Bandol produces some of France\'s finest Mourvèdre-dominant reds.',
+  'beaujolais':     'South of Burgundy, Beaujolais crafts fresh, fruit-forward Gamay wines — from light Nouveau to the structured crus of Moulin-à-Vent, Morgon and Fleurie.',
+  'jura':           'A small, quirky eastern French region known for oxidative Savagnin (Vin Jaune), rare Poulsard, and distinctive Trousseau reds grown on limestone and marl slopes.',
+  'savoie':         'Alpine terroirs near the Swiss and Italian borders produce delicate, mountain-fresh whites from Jacquère and Roussette, plus light reds from Mondeuse.',
+  // Italy
+  'tuscany':        'Italy\'s most celebrated wine region spans Brunello di Montalcino\'s Sangiovese powerhouses, the elegance of Chianti Classico, and the Supertuscan revolution of the Bolgheri coast.',
+  'piedmont':       'The grand cru of Italian wine, Piedmont is home to Barolo and Barbaresco — "the king and queen of Italian wine" — crafted from the noble Nebbiolo grape in the misty Langhe hills.',
+  'veneto':         'Italy\'s most productive DOC region, the Veneto runs from Lake Garda to the Dolomite foothills. Amarone della Valpolicella is the crown jewel — a powerful, dried-grape red of extraordinary depth.',
+  'sicily':         'Italy\'s sun-baked island has reinvented itself as a fine wine destination, with indigenous Nero d\'Avola and Nerello Mascalese from the volcanic slopes of Mount Etna drawing global attention.',
+  'campania':       'Southern Italy\'s ancient wine heartland, home to Fiano di Avellino, Greco di Tufo and the long-lived reds of Taurasi — all made from indigenous grapes with deep Greek and Roman roots.',
+  'umbria':         'Landlocked in central Italy, Umbria produces Sagrantino di Montefalco, one of Italy\'s most tannic and age-worthy reds, alongside crisp Orvieto whites.',
+  'sardinia':       'The Mediterranean island produces bold Cannonau (Grenache), rich Vermentino whites and Carignano from old bush vines battered by sea winds — wines of remarkable individuality.',
+  'puglia':         'Italy\'s heel produces more wine than any other region. Primitivo di Manduria and Negroamaro make deep, sun-rich reds, while Verdeca and Fiano yield characterful whites.',
+  'marche':         'The Adriatic-facing Marche region is famed for Verdicchio dei Castelli di Jesi, one of Italy\'s finest white wines, and the bold red Rosso Conero from Montepulciano grapes.',
+  'abruzzo':        'A rugged Adriatic region where Montepulciano d\'Abruzzo produces robust, deeply coloured reds, and Trebbiano d\'Abruzzo whites range from simple to surprisingly profound.',
+  'lombardy':       'Northern Italy\'s economic powerhouse also excels in wine, with Franciacorta\'s top-class Champagne-method sparkling wines and Valtellina\'s delicate, high-altitude Nebbiolo.',
+  'friuli':         'Italy\'s north-eastern corner, bordering Slovenia, is the cradle of modern Italian white wine — Pinot Grigio, Tocai Friulano and Ribolla Gialla reach their apex here.',
+  'trentino-alto-adige': 'Italy\'s northernmost wine region blends Tyrolean Alpine tradition with Italian flair, producing crisp Pinot Bianco, Gewurztraminer and elegant Pinot Nero on steep mountain terraces.',
+  'emilia-romagna': 'Home to the irrepressible Lambrusco — ranging from sweet and frothy to bone-dry and complex — and Sangiovese di Romagna. A region that matches its food culture in exuberance.',
+  'lazio':          'The region of Rome produces Frascati and Est! Est!! Est!!! from Malvasia and Trebbiano, alongside emerging reds from Cesanese — a grape rediscovered by ambitious new producers.',
+  'basilicata':     'Remote Basilicata is home to Aglianico del Vulture — grown on the volcanic slopes of Monte Vulture, it rivals Barolo in power and complexity.',
+  // Spain
+  'rioja':          'Spain\'s most famous appellation produces structured Tempranillo blends — from young, fruit-driven Jovens to barrel-aged Reservas and Grandes Reservas of remarkable longevity.',
+  'ribera-del-duero': 'High-altitude Castilian plateau yields Tempranillo (Tinto Fino) wines of great structure and colour — Vega Sicilia and Pingus are among the most revered bottles in the world.',
+  'priorat':        'A tiny, remote Catalan region with ancient Llicorella slate soils and old Grenache and Carignan vines producing extraordinarily concentrated, mineral wines of international renown.',
+  'rias-baixas':    'Galicia\'s Atlantic-cooled coastline is the home of Albariño, Spain\'s most successful white grape — aromatic, citrusy and bracingly fresh with natural salinity.',
+  'jerez':          'The birthplace of Sherry. Palomino grapes grown on albariza chalk produce everything from bone-dry Fino and Manzanilla to rich Amontillado and sumptuous Pedro Ximénez.',
+  'penedes':        'Catalonia\'s Penedès is the heartland of Cava — Spain\'s Champagne-method sparkling wine — alongside still whites and reds from Macabeo, Xarel·lo and international varieties.',
+  'navarra':        'Bordering Rioja, Navarra once staked its claim on Garnacha rosado and Tempranillo reds. Today it is also known for Garnacha from old vines and experimental international varieties.',
+  'rueda':          'Castile\'s Rueda DO specialises in Verdejo, a crisp, herbaceous white grape producing wines with citrus and stone fruit character — Spain\'s most exciting white region.',
+  'toro':           'On the high plateau west of Zamora, Toro\'s old Tinta de Toro (Tempranillo) vines produce powerful, deeply pigmented reds that have attracted investment from leading producers worldwide.',
+  'bierzo':         'In the mountains of León, Mencía produces elegant, mineral reds from ancient terraced vines — a sleeping giant of Spanish fine wine finally getting global attention.',
+  'la-mancha':      'Spain\'s vast central plateau — the world\'s largest single wine region by area — produces huge volumes of everyday Airén whites and Tempranillo reds at excellent value.',
+  // Germany
+  'mosel':          'Germany\'s most iconic region follows the steep, slate-lined Mosel river, producing Rieslings of breathtaking precision and feather-light alcohol — from bone-dry to lusciously sweet.',
+  'rheingau':       'A short stretch of Rhine bank facing south produces some of Germany\'s richest and most powerful Rieslings, with Schloss Johannisberg and Kloster Eberbach as historic anchors.',
+  'rheinhessen':    'Germany\'s largest wine region, Rheinhessen spans flat inland vineyards for everyday wines and dramatic riverside slopes for world-class Riesling and Silvaner.',
+  'pfalz':          'Warmer than Mosel and Rheingau, the Pfalz produces fuller-bodied Rieslings plus fine Burgundy varieties — a stylistically diverse region with some of Germany\'s most exciting estates.',
+  'nahe':           'The Nahe River valley produces Rieslings of striking mineral complexity, often combining the delicacy of Mosel with the body of Rheingau — one of Germany\'s most distinctive regions.',
+  'franken':        'Franconian wines come in the distinctive squat Bocksbeutel bottle. Silvaner is the regional speciality — earthy, savoury and excellent with food. Würzburg is the cultural heartbeat.',
+  // Portugal
+  'douro':          'Portugal\'s Douro Valley is home to Port — the world\'s great fortified wine — but also produces remarkable unfortified table wines from Touriga Nacional, Tinta Roriz and Tinta Barroca on dramatic schist terraces.',
+  'alentejo':       'Portugal\'s sun-drenched southern plains produce generous, fruit-forward reds from Aragonez and Alicante Bouschet. The region has transformed in a generation into one of Europe\'s most dynamic.',
+  'vinho-verde':    'Portugal\'s northwestern corner produces light, refreshing whites — typically Alvarinho or Loureiro — with a slight natural spritz. The name means "green wine", referring to youth rather than colour.',
+  'dao':            'Surrounded by granite mountains in central Portugal, the Dão region produces elegant, structured reds from Touriga Nacional and crisp Encruzado whites of real complexity.',
+  'bairrada':       'A maritime-influenced region near Coimbra where the tannic Baga grape produces ageworthy reds and the country\'s most impressive traditional-method sparkling wines.',
+  'setubal':        'The Setúbal Peninsula south of Lisbon is known for the iconic Moscatel de Setúbal dessert wine — richly honied and perfumed — as well as interesting everyday reds.',
+  // Argentina
+  'mendoza':        'Argentina\'s wine capital. The Andes shadow casts a rain-free, high-altitude environment perfectly suited to Malbec — here transformed from a Bordeaux blending grape into a world-class variety in its own right.',
+  'salta':          'Argentina\'s most extreme wine region, with vineyards reaching over 3,000 metres — among the world\'s highest. Torrontés produces uniquely floral aromatics; Malbec gains extraordinary freshness.',
+  'patagonia':      'Argentina\'s cool far south yields elegant Pinot Noir and Malbec with restrained alcohol and vibrant acidity — a new frontier for fine Argentine wine.',
+  'san-juan':       'North of Mendoza, the hot and arid San Juan region is Argentina\'s second-largest producer, specialising in Syrah, Bonarda and Viognier with a bold, sun-drenched character.',
+  // Chile
+  'maipo':          'Chile\'s most prestigious region, surrounding Santiago, produces Cabernet Sauvignon of Bordeaux-like stature — Don Melchor and Almaviva being the most celebrated.',
+  'colchagua':      'A warm Andean valley famous for Carménère — Chile\'s signature red — alongside structured Cabernet and expressive Syrah. Lapostolle and Montes put it on the world wine map.',
+  'casablanca':     'Chile\'s pioneering cool-climate region, caught between the Andes and the Pacific, delivers crisp Sauvignon Blanc and elegant Pinot Noir that changed the Chilean wine narrative.',
+  'aconcagua':      'The broad valley north of Santiago with sub-zones ranging from warm Aconcagua Valley reds to the cool-climate Pacific-facing vineyards of Aconcagua Costa.',
+  'bio-bio':        'One of Chile\'s southernmost wine regions, Bío-Bío produces delicate Pinot Noir and refreshing País from old bush vines — a frontier zone for fine Chilean wine.',
+  // Australia
+  'barossa':        'Australia\'s most celebrated wine region, the Barossa Valley produces some of the world\'s greatest Shiraz from old, even century-old, dry-farmed vines. Penfolds Grange is made here.',
+  'mclaren-vale':   'South of Adelaide, McLaren Vale\'s Mediterranean climate and diverse soils produce rich Shiraz, Grenache and Mourvèdre — with Clarendon Hills and d\'Arenberg leading the charge.',
+  'coonawarra':     'A thin strip of terra rossa limestone soil in South Australia is Australia\'s most distinctive Cabernet Sauvignon territory — producing elegant, cassis-scented reds of remarkable consistency.',
+  'yarra-valley':   'Victoria\'s Yarra Valley is the epicentre of elegant Australian Pinot Noir and Chardonnay, sheltered by the Great Dividing Range and cooled by elevation and maritime influence.',
+  'margaret-river': 'Western Australia\'s premium wine zone produces Cabernet-Merlot and Chardonnay of Bordeaux and Burgundy ambition — Cape Mentelle and Leeuwin Estate set the benchmark.',
+  'hunter-valley':  'New South Wales\' historic wine region makes Semillon of extraordinary longevity and earthy Shiraz. Tyrrell\'s and Brokenwood are standard-bearers of its long tradition.',
+  'eden-valley':    'High altitude neighbour to the Barossa, Eden Valley produces cooler-climate Shiraz and Australia\'s finest Riesling — crisp, lime-zesty and built for decades of aging.',
+  'clare-valley':   'South Australia\'s Clare Valley is synonymous with steely, mineral Riesling — often finished under screwcap — that ages magnificently over 10–20 years.',
+  // New Zealand
+  'marlborough':    'New Zealand\'s premier wine region and the global capital of Sauvignon Blanc — Cloudy Bay made Marlborough famous worldwide for its explosive, herbaceous, tropical style.',
+  'central-otago':  'The world\'s southernmost wine region, Central Otago\'s continental climate and schist soils produce Pinot Noir of haunting perfume and spice — Felton Road and Rippon are icons.',
+  'hawkes-bay':     'New Zealand\'s second-largest wine region, Hawkes Bay excels at Bordeaux-style Cabernet and Merlot blends from its prized Gimblett Gravels subzone, plus superb Chardonnay.',
+  'martinborough':  'A small, windswept town at the southern tip of the North Island, Martinborough produces Pinot Noir of Burgundian delicacy and excellent Sauvignon Blanc.',
+  // USA
+  'napa':           'California\'s Napa Valley is America\'s most prestigious wine address. Cabernet Sauvignon reigns supreme on valley floor and mountainside, with landmark estates like Opus One and Screaming Eagle.',
+  'sonoma':         'Napa\'s cooler, more diverse neighbour covers multiple climate zones — from Dry Creek\'s Zinfandel to Russian River Valley\'s silky Pinot Noir and Green Valley Chardonnay.',
+  'oregon':         'The Willamette Valley in Oregon is America\'s answer to Burgundy — cool, rainy and perfectly suited to Pinot Noir of extraordinary delicacy and Pinot Gris of real complexity.',
+  'washington':     'Washington State\'s high-desert vineyards east of the Cascades produce powerful, structured Cabernet Sauvignon, Syrah and Merlot of real complexity — Walla Walla leads the fine wine charge.',
+  'california':     'The world\'s fourth-largest wine producer spans dozens of regions from Anderson Valley to Santa Barbara, offering everything from iconic Napa Cabernet to coastal Pinot Noir.',
+  // South Africa
+  'stellenbosch':   'South Africa\'s wine capital, Stellenbosch produces the country\'s finest Cabernet Sauvignon and Bordeaux blends from diverse granite and decomposed granite soils around the historic university town.',
+  'swartland':      'A revolution led by young, iconoclastic winemakers (the "Swartland Revolution") turned this former bulk wine region into South Africa\'s hottest fine wine address, known for old-vine Chenin Blanc and Syrah.',
+  'franschhoek':    'A picturesque valley settled by French Huguenots, Franschhoek produces some of South Africa\'s finest Chardonnay, Semillon and méthode cap classique sparkling wines.',
+  'hemel-en-aarde': 'The Valley of Heaven and Earth, south of Hermanus, is South Africa\'s answer to Burgundy — cool, maritime-influenced and producing the country\'s most elegant Pinot Noir and Chardonnay.',
+  // Austria
+  'wachau':         'Austria\'s most famous wine region, a UNESCO World Heritage landscape on the Danube, produces Riesling and Grüner Veltliner of world-class quality in three style levels: Steinfeder, Federspiel and Smaragd.',
+  'kremstal':       'Downstream from the Wachau, Kremstal\'s varied soils — loess, gneiss and limestone — produce Grüner Veltliner and Riesling of great expressiveness around the historic city of Krems.',
+  'kamptal':        'The Kamp River valley north of the Danube produces some of Austria\'s most precise Rieslings and Grüner Veltliners, with the basalt vineyards of Heiligenstein yielding legendary wines.',
+  'burgenland':     'Austria\'s eastern border with Hungary is the heartland of sweet wine — noble Trockenbeerenauslesen from Ruster Ausbruch are legendary — plus excellent dry reds from Blaufränkisch.',
+  // Greece
+  'santorini':      'Greece\'s most iconic wine island, Santorini grows Assyrtiko in basket-trained vines (kouloura) on volcanic pumice soils, producing searingly dry, mineral whites and rare Vinsanto sweet wines.',
+  'naoussa':        'Northern Greece\'s coolest and most prestigious red wine appellation, Naoussa produces Xinomavro — an aromatic, tannic grape often compared to Nebbiolo — of great aging potential.',
+  'nemea':          'The Peloponnese heartland of Agiorgitiko, Greece\'s most widely planted red variety. Nemea ranges from soft, fruit-driven wines to concentrated, structured crus from high-altitude vineyards.',
+  // Hungary
+  'tokaj':          'Hungary\'s legendary wine region has produced Aszú dessert wines since the 16th century — some consider Tokaji the world\'s greatest sweet wine. Dry Furmint is now making waves worldwide.',
+  // Georgia
+  'kakheti':        'The cradle of wine civilisation, Georgia\'s Kakheti region has produced wine for 8,000 years. Amber (skin-contact) wines from Rkatsiteli fermented in qvevri clay pots are the most distinctive expressions.',
+  // "Various" fallbacks (for Alko/SB generic regions)
+  'france-various': 'A collection of French wines from various appellations, including regional blends and wines from smaller AOCs across Bordeaux, Burgundy, the Loire and beyond.',
+  'italy-various':  'Italian wines from various DOC and IGT zones, including blends and regional specialities from the length of the peninsula.',
+  'spain-various':  'Spanish wines from various DOs and regions, spanning everything from everyday Tempranillo and Garnacha to experimental and indigenous varieties.',
+  'germany-various':'German wines from multiple regions, featuring Riesling, Müller-Thurgau and other varieties from the Rhine, Mosel and beyond.',
+  'portugal-various':'Portuguese wines from various DOCs, from Atlantic-fresh Vinho Verde to powerful Alentejo reds and historic Port appellations.',
+  'argentina-various':'Argentine wines from multiple regions, led by Malbec but also including Torrontés, Bonarda and Cabernet from Mendoza, Patagonia and beyond.',
+  'chile-various':  'Chilean wines from various valleys, from the warm Central Valley to cool coastal and Andean-foothill zones.',
+  'australia-various':'Australian wines from multiple regions, spanning Shiraz, Cabernet, Chardonnay and Riesling from South Australia, Victoria, New South Wales and Western Australia.',
+  'new-zealand-various':'New Zealand wines from various regions, built on the country\'s strengths in Sauvignon Blanc, Pinot Noir and Chardonnay.',
+  'usa-various':    'American wines from multiple states and AVAs, reflecting the diversity of US winemaking from California to New York and the Pacific Northwest.',
+  'south-africa-various':'South African wines from the Cape Winelands and beyond, showcasing Chenin Blanc, Pinotage and Cabernet Sauvignon.',
+};
+
+// Apply enriched descriptions to regions that have generic text
+function applyRegionDescriptions() {
+  DATA.forEach(function(country) {
+    country.regions.forEach(function(region) {
+      var lookup = REGION_DESC[region.id];
+      if (!lookup) {
+        // Try matching by name (lowercase, simplified)
+        var nameKey = region.name.toLowerCase()
+          .replace(/[()]/g,'').replace(/\s+/g,'-')
+          .replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
+        lookup = REGION_DESC[nameKey];
+      }
+      if (lookup && (region.description.includes('available at') || region.description.includes('wines from') || region.description.length < 60)) {
+        region.description = lookup;
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+// WINERY DEDUPLICATION + WINE DEDUPLICATION
+// ─────────────────────────────────────────────
+function consolidateData() {
+  // First words that indicate a multi-word producer name — skip merging on first word alone
+  var GENERIC = {
+    'chateau':1,'château':1,'domaine':1,'maison':1,'casa':1,'bodega':1,'bodegas':1,
+    'tenuta':1,'tenute':1,'cantina':1,'cantine':1,'villa':1,'azienda':1,'aziende':1,
+    'clos':1,'mas':1,'quinta':1,'hacienda':1,'weingut':1,'schloss':1,'herdade':1,
+    'abbaye':1,'abbazia':1,'podere':1,'poderi':1,'fattoria':1,'finca':1,'pago':1,
+    'estate':1,'vignobles':1,'vignoble':1,'caves':1,'cave':1,'masseria':1,'societa':1,
+  };
+
+  DATA.forEach(function(country) {
+    country.regions.forEach(function(region) {
+      // Step 1 — deduplicate wines within each winery by alkoId / sbId / vmId / name+vintage
+      region.wineries.forEach(function(winery) {
+        var seen = {};
+        winery.wines = winery.wines.filter(function(wine) {
+          var key = wine.alkoId || wine.sbId || wine.vmId || (wine.name + '|' + (wine.vintage || ''));
+          if (seen[key]) return false;
+          seen[key] = true;
+          return true;
+        });
+      });
+
+      // Step 2 — group wineries by normalised first word (skip generic prefixes)
+      var groups = {};
+      region.wineries.forEach(function(winery) {
+        var parts = winery.name.trim().split(/\s+/);
+        var fw = parts[0].toLowerCase().replace(/[^a-z]/g, '');
+        if (!fw || GENERIC[fw]) return;
+        (groups[fw] = groups[fw] || []).push(winery);
+      });
+
+      // Step 3 — for groups with 2+ wineries, merge into one
+      var toRemove = [];
+      Object.keys(groups).forEach(function(key) {
+        var group = groups[key];
+        if (group.length < 2) return;
+        // Sort ascending by name length so shortest becomes primary
+        group.sort(function(a, b) { return a.name.length - b.name.length; });
+        var primary = group[0];
+        // Rename primary to the brand root (first word, capitalised)
+        var brand = primary.name.trim().split(/\s+/)[0];
+        brand = brand.charAt(0).toUpperCase() + brand.slice(1);
+        primary.name = brand;
+
+        // Collect existing wine keys
+        var seenKeys = {};
+        primary.wines.forEach(function(w) {
+          var k = w.alkoId || w.sbId || w.vmId || (w.name + '|' + (w.vintage || ''));
+          seenKeys[k] = true;
+        });
+
+        for (var i = 1; i < group.length; i++) {
+          group[i].wines.forEach(function(wine) {
+            var k = wine.alkoId || wine.sbId || wine.vmId || (wine.name + '|' + (wine.vintage || ''));
+            if (!seenKeys[k]) {
+              seenKeys[k] = true;
+              primary.wines.push(wine);
+            }
+          });
+          toRemove.push(group[i]);
+        }
+      });
+
+      // Remove merged wineries
+      if (toRemove.length) {
+        region.wineries = region.wineries.filter(function(w) { return toRemove.indexOf(w) === -1; });
+      }
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+// DATA — inserted by part 2
+// ─────────────────────────────────────────────
+</script>
+<script src="EGS-Wine-Data.js"></script>
+<script src="EGS-Alko-Wines.js"></script>
+<script src="EGS-SB-Wines.js"></script>
+<script src="EGS-VM-Wines.js"></script>
+<script>
+if(typeof mergeAlkoData==='function')mergeAlkoData();
+if(typeof mergeSbData==='function')mergeSbData();
+if(typeof mergeVmData==='function')mergeVmData();
+consolidateData();
+applyRegionDescriptions();
+render();
+</script>
+</body>
+</html>
