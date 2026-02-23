@@ -744,12 +744,14 @@ function consolidateData() {
 <script src="EGS-VM-Wines.js"></script>
 <script src="EGS-Superiore-Wines.js"></script>
 <script src="EGS-Millesima-Wines.js"></script>
+<script src="EGS-Vinissimus-Wines.js"></script>
 <script>
 if(typeof mergeAlkoData==='function')mergeAlkoData();
 if(typeof mergeSbData==='function')mergeSbData();
 if(typeof mergeVmData==='function')mergeVmData();
 if(typeof mergeSuperioreData==='function')mergeSuperioreData();
 if(typeof mergeMillesimaData==='function')mergeMillesimaData();
+if(typeof mergeVinissimusData==='function')mergeVinissimusData();
 consolidateData();
 applyRegionDescriptions();
 render();
