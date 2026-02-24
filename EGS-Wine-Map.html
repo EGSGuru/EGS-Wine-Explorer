@@ -460,7 +460,8 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         layer.on('mouseout', function() {
           if (this !== selectedLayer) this.setStyle(styleWine());
         });
-        layer.on('click', function() {
+        layer.on('click', function(e) {
+          L.DomEvent.stopPropagation(e);
           openPanel(cs, this);
         });
       },
@@ -511,13 +512,8 @@ function closePanel() {
   }
 }
 
-// Close when clicking the map background
-map.on('click', function(e) {
-  if (!e.originalEvent._panel) closePanel();
-});
-document.getElementById('panel').addEventListener('click', function(e) {
-  e.originalEvent && (e.originalEvent._panel = true);
-});
+// Close panel when clicking the map background (not a country)
+map.on('click', function() { closePanel(); });
 
 function buildPanelBody(cs) {
   var body = document.getElementById('panel-body');
