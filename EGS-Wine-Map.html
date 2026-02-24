@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EGS Wine Explorer · Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #1a0a00;
+      color: #2d1a0e;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    #header {
+      background: #3a0d18;
+      color: #f5e6d3;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+      z-index: 2000;
+    }
+    #header h1 { font-size: 1.25em; font-weight: normal; letter-spacing: 1px; }
+    #header-right { display: flex; gap: 10px; align-items: center; }
+    #header a {
+      color: #c9956a;
+      text-decoration: none;
+      font-size: 0.85em;
+      border: 1px solid #c9956a44;
+      padding: 5px 14px;
+      border-radius: 20px;
+      transition: all 0.2s;
+    }
+    #header a:hover { background: #c9956a22; border-color: #c9956a; }
+
+    /* ── Map container ── */
+    #map-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #map { width: 100%; height: 100%; }
+
+    /* ── Floating stats badge ── */
+    #stats {
+      position: absolute;
+      bottom: 18px;
+      left: 18px;
+      background: rgba(58, 13, 24, 0.88);
+      color: #f5e6d3;
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 0.80em;
+      z-index: 800;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Legend ── */
+    #legend {
+      position: absolute;
+      bottom: 18px;
+      right: 18px;
+      background: rgba(255,248,242,0.92);
+      border: 1px solid #c9956a55;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.76em;
+      color: #3a0d18;
+      z-index: 800;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+    #legend strong { display: block; margin-bottom: 7px; letter-spacing: 0.5px; }
+    .leg-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+    .leg-dot {
+      border-radius: 50%;
+      background: rgba(122,20,40,0.55);
+      border: 1.5px solid #4a1020;
+      flex-shrink: 0;
+    }
+
+    /* ── Hint bubble ── */
+    #hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(58,13,24,0.80);
+      color: #f5e6d3;
+      padding: 14px 24px;
+      border-radius: 30px;
+      font-size: 0.92em;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      z-index: 800;
+      transition: opacity 0.5s;
+    }
+    #hint.hidden { opacity: 0; }
+
+    /* ── Side panel ── */
+    #panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 370px;
+      background: #fff8f2;
+      border-left: 1px solid #d4a96a55;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+      z-index: 1500;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.25);
+    }
+    #panel.open { transform: translateX(0); }
+
+    #panel-header {
+      background: #3a0d18;
+      color: #f5e6d3;
+      padding: 16px 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    #panel-flag { font-size: 2.4em; line-height: 1; }
+    #panel-meta { flex: 1; min-width: 0; }
+    #panel-meta h2 { font-size: 1.2em; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #panel-meta p  { font-size: 0.80em; color: #c9956a; margin-top: 3px; }
+    #panel-close   { cursor: pointer; color: #c9956a; font-size: 1.3em; padding: 4px 8px; flex-shrink: 0; border-radius: 4px; }
+    #panel-close:hover { background: rgba(255,255,255,0.1); }
+
+    #panel-body { flex: 1; overflow-y: auto; padding: 14px; }
+
+    .sec-title {
+      font-size: 0.70em;
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      color: #8b5e3c;
+      border-bottom: 1px solid #e8d5b7;
+      padding-bottom: 5px;
+      margin: 16px 0 8px;
+    }
+    .sec-title:first-child { margin-top: 0; }
+
+    /* Region rows */
+    .reg-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 8px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin: 1px 0;
+    }
+    .reg-row:hover { background: #f0e0cc; }
+    .reg-row.active { background: #e8d5b7; }
+    .reg-name { font-size: 0.90em; }
+    .reg-count { font-size: 0.76em; color: #8b5e3c; background: #f0e0cc; padding: 2px 8px; border-radius: 10px; }
+
+    /* Wine rows */
+    .wine-row { padding: 8px 0; border-bottom: 1px solid #e8d5b7; }
+    .wine-row:last-child { border: none; }
+    .wine-title { font-size: 0.88em; font-weight: bold; color: #1a0a00; }
+    .wine-sub   { font-size: 0.76em; color: #8b5e3c; margin-top: 3px; }
+    .score-pill {
+      display: inline-block;
+      background: #3a0d18;
+      color: #f5e6d3;
+      font-size: 0.72em;
+      padding: 1px 7px;
+      border-radius: 10px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    .type-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* Explore button */
+    #explore-btn {
+      display: block;
+      margin: 12px;
+      padding: 11px;
+      background: #3a0d18;
+      color: #f5e6d3;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 0.88em;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    #explore-btn:hover { background: #5a1528; }
+
+    /* Leaflet tooltip override */
+    .leaflet-tooltip {
+      background: #3a0d18 !important;
+      color: #f5e6d3 !important;
+      border: none !important;
+      border-radius: 7px !important;
+      font-family: Georgia, serif !important;
+      font-size: 0.86em !important;
+      padding: 6px 12px !important;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35) !important;
+    }
+    .leaflet-tooltip::before { border-top-color: #3a0d18 !important; }
+
+    /* Scrollbar */
+    #panel-body::-webkit-scrollbar { width: 6px; }
+    #panel-body::-webkit-scrollbar-track { background: transparent; }
+    #panel-body::-webkit-scrollbar-thumb { background: #c9956a44; border-radius: 3px; }
+
+    @media (max-width: 560px) {
+      #panel { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>🍷 EGS Wine Explorer</h1>
+  <div id="header-right">
+    <a href="EGS-Wine-Explorer.html">Full Explorer &rarr;</a>
+  </div>
+</div>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="stats">Loading&hellip;</div>
+  <div id="hint">Click a circle to explore wines from that country</div>
+  <div id="legend">
+    <strong>Circle = wine count</strong>
+    <div class="leg-row"><div class="leg-dot" style="width:10px;height:10px"></div>&lt; 100 wines</div>
+    <div class="leg-row"><div class="leg-dot" style="width:18px;height:18px"></div>100 – 1 000</div>
+    <div class="leg-row"><div class="leg-dot" style="width:28px;height:28px"></div>1 000+</div>
+  </div>
+
+  <div id="panel">
+    <div id="panel-header">
+      <div id="panel-flag">🍷</div>
+      <div id="panel-meta">
+        <h2 id="panel-name">—</h2>
+        <p  id="panel-stats"></p>
+      </div>
+      <div id="panel-close" title="Close" onclick="closePanel()">✕</div>
+    </div>
+    <div id="panel-body"></div>
+    <a id="explore-btn" href="EGS-Wine-Explorer.html">Browse in Full Explorer &rarr;</a>
+  </div>
+</div>
+
+<!-- ── Data files ── -->
+<script src="EGS-Wine-Data.js"></script>
+<script src="EGS-Alko-Wines.js"></script>
+<script src="EGS-SB-Wines.js"></script>
+<script src="EGS-VM-Wines.js"></script>
+<script src="EGS-Superiore-Wines.js"></script>
+<script src="EGS-Millesima-Wines.js"></script>
+<script src="EGS-Vinissimus-Wines.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ── Merge all sources ──────────────────────────────────────────────────────
+if (typeof mergeAlkoData       === 'function') mergeAlkoData();
+if (typeof mergeSbData         === 'function') mergeSbData();
+if (typeof mergeVmData         === 'function') mergeVmData();
+if (typeof mergeSuperioreData  === 'function') mergeSuperioreData();
+if (typeof mergeMillesimaData  === 'function') mergeMillesimaData();
+if (typeof mergeVinissimusData === 'function') mergeVinissimusData();
+
+// ── Country centroids [lat, lng] ───────────────────────────────────────────
+var CENTROIDS = {
+  'france':              [ 46.23,   2.21],
+  'spain':               [ 40.46,  -3.74],
+  'italy':               [ 41.87,  12.57],
+  'germany':             [ 51.17,  10.45],
+  'portugal':            [ 39.40,  -8.22],
+  'austria':             [ 47.52,  14.55],
+  'greece':              [ 39.07,  21.82],
+  'hungary':             [ 47.16,  19.50],
+  'czech-republic':      [ 49.82,  15.47],
+  'slovakia':            [ 48.67,  19.70],
+  'slovenia':            [ 46.15,  14.99],
+  'croatia':             [ 45.10,  15.20],
+  'romania':             [ 45.94,  24.97],
+  'bulgaria':            [ 42.73,  25.49],
+  'ukraine':             [ 48.38,  31.17],
+  'moldova':             [ 47.41,  28.37],
+  'georgia':             [ 42.31,  43.36],
+  'armenia':             [ 40.07,  45.04],
+  'turkey':              [ 38.96,  35.24],
+  'israel':              [ 31.05,  34.85],
+  'lebanon':             [ 33.85,  35.86],
+  'morocco':             [ 31.79,  -7.09],
+  'algeria':             [ 28.03,   1.66],
+  'tunisia':             [ 33.89,   9.54],
+  'switzerland':         [ 46.82,   8.23],
+  'luxembourg':          [ 49.75,   6.17],
+  'england':             [ 52.36,  -1.17],
+  'united-kingdom':      [ 55.38,  -3.44],
+  'ireland':             [ 53.41,  -8.24],
+  'denmark':             [ 56.26,   9.50],
+  'sweden':              [ 60.13,  18.64],
+  'norway':              [ 60.47,   8.47],
+  'finland':             [ 61.92,  25.75],
+  'netherlands':         [ 52.13,   5.29],
+  'belgium':             [ 50.50,   4.47],
+  'poland':              [ 51.92,  19.15],
+  'russia':              [ 61.52, 105.32],
+  'kazakhstan':          [ 48.02,  66.92],
+  'usa':                 [ 37.09, -95.71],
+  'united-states':       [ 37.09, -95.71],
+  'united-states-of-america': [37.09, -95.71],
+  'canada':              [ 56.13,-106.35],
+  'mexico':              [ 23.63,-102.55],
+  'argentina':           [-38.42, -63.62],
+  'chile':               [-35.68, -71.54],
+  'brazil':              [-14.24, -51.93],
+  'brasil':              [-14.24, -51.93],
+  'uruguay':             [-32.52, -55.77],
+  'peru':                [ -9.19, -75.02],
+  'colombia':            [  4.57, -74.30],
+  'bolivia':             [-16.29, -63.59],
+  'venezuela':           [  6.42, -66.59],
+  'australia':           [-25.27, 133.78],
+  'new-zealand':         [-40.90, 174.89],
+  'south-africa':        [-30.56,  22.94],
+  'china':               [ 35.86, 104.20],
+  'japan':               [ 36.20, 138.25],
+  'taiwan':              [ 23.70, 121.00],
+  'india':               [ 20.59,  78.96],
+  'thailand':            [ 15.87, 100.99],
+  'indonesia':           [ -0.79, 113.92],
+  'singapore':           [  1.35, 103.82],
+  'namibia':             [-22.96,  18.49],
+  'zimbabwe':            [-19.02,  29.15],
+  'ethiopia':            [  9.15,  40.49],
+  'kenya':               [ -0.02,  37.91],
+  'south-africa':        [-30.56,  22.94],
+  'cyprus':              [ 35.13,  33.43],
+  'malta':               [ 35.94,  14.38],
+  'barbados':            [ 13.19, -59.54],
+  'myanmar':             [ 17.10,  96.96],
+};
+
+// ── Wine type colours ──────────────────────────────────────────────────────
+var TYPE_COLOR = {
+  red:       '#7a1428',
+  white:     '#c8a84b',
+  rose:      '#c06080',
+  sparkling: '#4a7a8a',
+  sweet:     '#8a5a20',
+  fortified: '#5a2a6a',
+};
+function typeColor(type) { return TYPE_COLOR[type] || '#7a1428'; }
+
+// ── Build country summary ──────────────────────────────────────────────────
+var summary = {};   // id -> { name, flag, code, wineCount, regionCount, data }
+var totalWines = 0;
+
+(typeof DATA !== 'undefined' ? DATA : []).forEach(function(country) {
+  var wineCount = 0;
+  (country.regions || []).forEach(function(reg) {
+    (reg.wineries || []).forEach(function(win) {
+      wineCount += (win.wines || []).length;
+    });
+  });
+  totalWines += wineCount;
+  summary[country.id] = {
+    id:          country.id,
+    name:        country.name  || country.id,
+    flag:        country.flag  || '🍷',
+    code:        country.code  || '',
+    wineCount:   wineCount,
+    regionCount: (country.regions || []).length,
+    data:        country,
+  };
+});
+
+document.getElementById('stats').textContent =
+  Object.keys(summary).length + ' countries · ' +
+  totalWines.toLocaleString() + ' wines';
+
+// ── Leaflet map ────────────────────────────────────────────────────────────
+var map = L.map('map', {
+  center: [25, 15],
+  zoom:   2,
+  minZoom: 1,
+  maxZoom: 8,
+  zoomControl: true,
+});
+
+// CartoDB Positron — clean, light, lets wine circles stand out
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com/">CARTO</a> | &copy; <a href="https://osm.org/copyright">OpenStreetMap</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── Add markers ────────────────────────────────────────────────────────────
+function countToRadius(n) {
+  return Math.max(7, Math.min(38, Math.sqrt(n) * 1.15));
+}
+
+var circles = {};
+var activeCircle = null;
+
+Object.values(summary).forEach(function(cs) {
+  var coord = CENTROIDS[cs.id];
+  if (!coord) return;
+
+  var r = countToRadius(cs.wineCount);
+  var circle = L.circleMarker(coord, {
+    radius:      r,
+    fillColor:   '#7a1428',
+    color:       '#3a0d18',
+    weight:      1.5,
+    opacity:     0.9,
+    fillOpacity: 0.5,
+  });
+
+  circle.bindTooltip(
+    '<span style="font-size:1.3em">' + cs.flag + '</span>&nbsp; <strong>' + cs.name + '</strong><br>' +
+    '<span style="color:#c9956a">' + cs.wineCount.toLocaleString() + ' wines &middot; ' + cs.regionCount + ' regions</span>',
+    { sticky: true, direction: 'top', offset: [0, -4] }
+  );
+
+  circle.on('click',     function() { openPanel(cs, this); });
+  circle.on('mouseover', function() { if (this !== activeCircle) this.setStyle({ fillOpacity: 0.75, weight: 2 }); });
+  circle.on('mouseout',  function() { if (this !== activeCircle) this.setStyle({ fillOpacity: 0.5,  weight: 1.5 }); });
+
+  circle.addTo(map);
+  circles[cs.id] = circle;
+});
+
+// ── Panel logic ────────────────────────────────────────────────────────────
+function openPanel(cs, circle) {
+  // De-select previous
+  if (activeCircle && activeCircle !== circle) {
+    activeCircle.setStyle({ fillOpacity: 0.5, weight: 1.5 });
+  }
+  activeCircle = circle;
+  circle.setStyle({ fillOpacity: 0.88, weight: 2.5 });
+
+  document.getElementById('panel-flag').textContent  = cs.flag;
+  document.getElementById('panel-name').textContent  = cs.name;
+  document.getElementById('panel-stats').textContent =
+    cs.wineCount.toLocaleString() + ' wines · ' + cs.regionCount + ' regions';
+
+  renderPanelBody(cs);
+
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('hint').classList.add('hidden');
+
+  var coord = CENTROIDS[cs.id];
+  if (coord) map.panTo(coord, { animate: true });
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  if (activeCircle) {
+    activeCircle.setStyle({ fillOpacity: 0.5, weight: 1.5 });
+    activeCircle = null;
+  }
+}
+
+function renderPanelBody(cs) {
+  var body = document.getElementById('panel-body');
+  body.innerHTML = '';
+
+  var country = cs.data;
+
+  // ── Regions section ──
+  addSectionTitle(body, 'Regions');
+
+  var regions = (country.regions || []).map(function(reg) {
+    var count = 0;
+    (reg.wineries || []).forEach(function(w) { count += (w.wines || []).length; });
+    return { reg: reg, count: count };
+  }).sort(function(a, b) { return b.count - a.count; });
+
+  regions.slice(0, 14).forEach(function(rObj) {
+    var reg = rObj.reg;
+    var row = document.createElement('div');
+    row.className = 'reg-row';
+    row.innerHTML =
+      '<span class="reg-name">' + (reg.icon ? reg.icon + ' ' : '') + reg.name + '</span>' +
+      '<span class="reg-count">' + rObj.count + '</span>';
+    row.addEventListener('click', function() {
+      document.querySelectorAll('.reg-row').forEach(function(r) { r.classList.remove('active'); });
+      row.classList.add('active');
+      showRegionWines(reg, body);
+    });
+    body.appendChild(row);
+  });
+
+  // ── Top wines section ──
+  addSectionTitle(body, 'Top Wines by Score');
+
+  var topWines = [];
+  (country.regions || []).forEach(function(reg) {
+    (reg.wineries || []).forEach(function(win) {
+      (win.wines || []).forEach(function(wine) {
+        if (wine.score > 0) {
+          topWines.push({
+            name:     wine.name,
+            vintage:  wine.vintage || '',
+            score:    wine.score,
+            type:     wine.type || 'red',
+            grape:    wine.grape || '',
+            region:   reg.name,
+            producer: win.name,
+            price:    wine.price || '-',
+          });
+        }
+      });
+    });
+  });
+  topWines.sort(function(a, b) { return b.score - a.score; });
+  appendWineRows(body, topWines.slice(0, 8));
+}
+
+function showRegionWines(reg, body) {
+  var old = body.querySelector('.region-wines');
+  if (old) old.remove();
+
+  var section = document.createElement('div');
+  section.className = 'region-wines';
+
+  addSectionTitle(section, (reg.icon ? reg.icon + ' ' : '') + reg.name);
+
+  var wines = [];
+  (reg.wineries || []).forEach(function(win) {
+    (win.wines || []).forEach(function(wine) {
+      wines.push({
+        name:     wine.name,
+        vintage:  wine.vintage || '',
+        score:    wine.score || 0,
+        type:     wine.type || 'red',
+        grape:    wine.grape || '',
+        region:   reg.name,
+        producer: win.name,
+        price:    wine.price || '-',
+      });
+    });
+  });
+  wines.sort(function(a, b) { return b.score - a.score; });
+  appendWineRows(section, wines.slice(0, 12));
+
+  body.appendChild(section);
+  setTimeout(function() { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+}
+
+function addSectionTitle(parent, text) {
+  var el = document.createElement('div');
+  el.className = 'sec-title';
+  el.textContent = text;
+  parent.appendChild(el);
+}
+
+function appendWineRows(parent, wines) {
+  if (!wines.length) {
+    var empty = document.createElement('p');
+    empty.style.cssText = 'color:#8b5e3c;font-size:.82em;padding:8px 0;';
+    empty.textContent = 'No scored wines found.';
+    parent.appendChild(empty);
+    return;
+  }
+  wines.forEach(function(wine) {
+    var div = document.createElement('div');
+    div.className = 'wine-row';
+
+    var grapeShort = wine.grape && wine.grape !== 'Unknown'
+      ? wine.grape.split(',')[0].trim() : '';
+
+    div.innerHTML =
+      '<div class="wine-title">' +
+        '<span class="type-dot" style="background:' + typeColor(wine.type) + '"></span>' +
+        escHtml(wine.name) +
+        (wine.score ? '<span class="score-pill">' + wine.score + '</span>' : '') +
+      '</div>' +
+      '<div class="wine-sub">' +
+        escHtml(wine.producer) +
+        (grapeShort ? ' &middot; ' + escHtml(grapeShort) : '') +
+        (wine.price && wine.price !== '-' ? ' &middot; ' + escHtml(wine.price) : '') +
+      '</div>';
+    parent.appendChild(div);
+  });
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close panel when clicking the map
+map.on('click', function(e) {
+  if (!e.originalEvent._fromCircle) closePanel();
+});
+</script>
+
+</body>
+</html>
