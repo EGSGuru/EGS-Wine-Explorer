@@ -403,7 +403,13 @@ var map = L.map('map', {
   zoomControl: true,
 });
 
-// Base tiles (no labels) — our country colours are the primary visual
+// Custom pane for labels — sits above country polygons (overlayPane=400)
+// but clicks pass through so countries remain clickable
+map.createPane('labelsPane');
+map.getPane('labelsPane').style.zIndex = 450;
+map.getPane('labelsPane').style.pointerEvents = 'none';
+
+// Base tiles (no labels)
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>',
   subdomains: 'abcd', maxZoom: 19,
@@ -423,8 +429,9 @@ function styleHover()  { return { fillColor: HOVER_FILL,  color: WINE_FILL,   we
 function styleSelect() { return { fillColor: SELECT_FILL, color: SELECT_BDR,  weight: 2.0, fillOpacity: 0.78, opacity: 1   }; }
 function styleGrey()   { return { fillColor: GREY_FILL,   color: GREY_BDR,    weight: 0.3, fillOpacity: 0.25, opacity: 0.5 }; }
 
-var geojsonLayer = null;
+var geojsonLayer  = null;
 var selectedLayer = null;
+var _countryJustClicked = false;  // flag to stop map-click closing the panel immediately
 
 fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
   .then(function(r) { return r.json(); })
@@ -460,8 +467,9 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         layer.on('mouseout', function() {
           if (this !== selectedLayer) this.setStyle(styleWine());
         });
-        layer.on('click', function(e) {
-          L.DomEvent.stopPropagation(e);
+        layer.on('click', function() {
+          _countryJustClicked = true;
+          setTimeout(function() { _countryJustClicked = false; }, 100);
           openPanel(cs, this);
         });
       },
@@ -470,9 +478,9 @@ fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     // Wine countries behind labels; grey on bottom
     geojsonLayer.addTo(map);
 
-    // Label tiles on top so they show through
+    // Labels tile on top of country fills, clicks pass through (pointerEvents:none on pane)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd', maxZoom: 19, pane: 'shadowPane',
+      subdomains: 'abcd', maxZoom: 19, pane: 'labelsPane',
     }).addTo(map);
 
     // Done loading
@@ -512,8 +520,10 @@ function closePanel() {
   }
 }
 
-// Close panel when clicking the map background (not a country)
-map.on('click', function() { closePanel(); });
+// Close panel when clicking map background — but not when a country was just clicked
+map.on('click', function() {
+  if (!_countryJustClicked) closePanel();
+});
 
 function buildPanelBody(cs) {
   var body = document.getElementById('panel-body');
